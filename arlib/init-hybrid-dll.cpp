@@ -93,13 +93,13 @@ void* pe_get_proc_address(HMODULE mod, const char * name)
 	DWORD * name_off = (DWORD*)(base_addr + exports->AddressOfNames);
 	WORD * ordinal = (WORD*)(base_addr + exports->AddressOfNameOrdinals);
 	
-	if ((uintptr_t)name < 0x10000) // ordinal
-	{
-		size_t idx = (uintptr_t)name - exports->Base;
-		if (idx > exports->NumberOfFunctions)
-			return NULL;
-		return base_addr + addr_off[idx];
-	}
+	//if ((uintptr_t)name < 0x10000) // ordinal
+	//{
+	//	size_t idx = (uintptr_t)name - exports->Base;
+	//	if (idx > exports->NumberOfFunctions)
+	//		return NULL;
+	//	return base_addr + addr_off[idx];
+	//}
 	
 	for (size_t i=0;i<exports->NumberOfNames;i++)
 	{
@@ -114,7 +114,7 @@ void* pe_get_proc_address(HMODULE mod, const char * name)
 
 struct ntdll_t {
 NTSTATUS WINAPI (*LdrLoadDll)(const WCHAR * DirPath, uint32_t Flags, const UNICODE_STRING * ModuleFileName, HMODULE* ModuleHandle);
-HMODULE WINAPI (*RtlPcToFileHeader)(void* PcValue, HMODULE* BaseOfImage); // TODO: replace with PEB::ImageBaseAddress aka PEB::Reserved3[1]
+HMODULE WINAPI (*RtlPcToFileHeader)(void* PcValue, HMODULE* BaseOfImage);
 NTSTATUS WINAPI (*NtProtectVirtualMemory)(HANDLE process, void** addr_ptr, size_t* size_ptr, uint32_t new_prot, uint32_t* old_prot);
 IMAGE_BASE_RELOCATION* WINAPI (*LdrProcessRelocationBlock)(void* page, unsigned count, uint16_t* relocs, intptr_t delta);
 };

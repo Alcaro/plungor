@@ -22,26 +22,36 @@ mov %eax, [%eax+0x00] # eax = LDR_MODULE::InLoadOrderModuleList.Flink aka LDR_MO
 mov %eax, [%eax+0x00] # eax = LDR_MODULE::InLoadOrderModuleList.Flink aka LDR_MODULE* for kernel32
 mov %ebx, [%eax+0x18] # ebx = LDR_MODULE::BaseAddress aka HMODULE
 
-call next1
-next1:
-addd [%esp], LoadLibraryA_32-next1
+call 1f
+1:
+addd [%esp], LoadLibraryA-1b
 push %ebx
 call _pe_get_proc_address@8
-call next2
-next2:
-addd [%esp], shellcode32_end+5-next2
+call 1f
+1:
+addd [%esp], shellcode32_end+5-1b
 call %eax
 
-call next3
-next3:
-addd [%esp], WriteProcessMemory_32-next3
+call 1f
+1:
+addd [%esp], PlungorInit-1b
+push %eax
+call _pe_get_proc_address@8
+test %eax,%eax # allow injecting dlls other than Plungor
+je 1f
+call %eax
+1:
+
+call 1f
+1:
+addd [%esp], WriteProcessMemory-1b
 push %ebx
 call _pe_get_proc_address@8
 push 0 # lpNumberOfBytesWritten
 push 5 # nSize
-call next4
-next4:
-addd [%esp], shellcode32_end-next4 # lpBuffer
+call 1f
+1:
+addd [%esp], shellcode32_end-1b # lpBuffer
 push [%esp+16] # lpBaseAddress
 push -1 # hProcess
 call %eax
@@ -49,10 +59,12 @@ call %eax
 # I think tail calling VirtualFree is possible on i386 stdcall abi, but if I can't do it on 64bit, no point trying here either
 
 pop %ebx
+
 ret
 
-LoadLibraryA_32: .ascii "LoadLibraryA\0"
-WriteProcessMemory_32: .ascii "WriteProcessMemory\0"
+LoadLibraryA: .ascii "LoadLibraryA\0"
+PlungorInit: .ascii "PlungorInit\0"
+WriteProcessMemory: .ascii "WriteProcessMemory\0"
 
 )");
 #else
@@ -77,13 +89,21 @@ mov %rax, [%rax+0x00] # rax = LDR_MODULE::InLoadOrderModuleList.Flink aka LDR_MO
 mov %rbx, [%rax+0x30] # rbx = LDR_MODULE::BaseAddress aka HMODULE
 
 mov %rcx, %rbx
-lea %rdx, [%rip+LoadLibraryA_64]
+lea %rdx, [%rip+LoadLibraryA]
 call pe_get_proc_address
 lea %rcx, [%rip+shellcode64_end+12] # lpLibFileName
 call %rax
 
+mov %rcx, %rax
+lea %rdx, [%rip+PlungorInit]
+call pe_get_proc_address
+test %rax,%rax # allow injecting dlls other than Plungor
+je 1f
+call %rax
+1:
+
 mov %rcx, %rbx
-lea %rdx, [%rip+WriteProcessMemory_64]
+lea %rdx, [%rip+WriteProcessMemory]
 call pe_get_proc_address
 mov %rcx, -1 # hProcess
 mov %rdx, [%rsp+48] # lpBaseAddress aka our return address
@@ -92,7 +112,7 @@ mov %r9, 12 # nSize
 movq [%rsp+32], 0 # lpNumberOfBytesWritten
 call %rax
 
-# I'd prefer if I could tail call VirtualFree, but tail call to function entry is impossible in win64 abi
+# I'd prefer if I could tail call VirtualFree, but tail call to function entry is impossible in ms64 abi
 # on function entry, the top 8 bytes are the return address, and the 32 bytes below that are the callee's scratch space
 # as such, the code after the call must discard the top 32 bytes of stack
 # but at function entry, the top 8 bytes are the return address; a tail call returning into a function entry is impossible
@@ -101,8 +121,9 @@ add %rsp, 40
 pop %rbx
 ret
 
-LoadLibraryA_64: .ascii "LoadLibraryA\0"
-WriteProcessMemory_64: .ascii "WriteProcessMemory\0"
+LoadLibraryA: .ascii "LoadLibraryA\0"
+PlungorInit: .ascii "PlungorInit\0"
+WriteProcessMemory: .ascii "WriteProcessMemory\0"
 
 )");
 #endif

@@ -1,3 +1,5 @@
 obj/
-plungor
-plungor.exe
+plungor32.dll
+plungor32.exe
+plungor64.dll
+plungor64.exe
