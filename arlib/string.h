@@ -2,7 +2,6 @@
 #include "global.h"
 #include "array.h"
 #include "hash.h"
-//#include "simd.h"
 #include <string.h>
 
 // define my own ctype, because table lookup is faster than libc call that probably ends up in a table lookup anyways,
@@ -615,7 +614,7 @@ inline bool operator==(const char * left, const cstring& right) { return operato
 #ifdef __SSE2__
 bool operator==(const cstring& left, const cstring& right);
 #else
-bool operator==(const cstring& left, const cstring& right)
+inline bool operator==(const cstring& left, const cstring& right)
 {
 	return left.bytes() == right.bytes();
 }

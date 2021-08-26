@@ -387,7 +387,7 @@ TRUE_CFLAGS := -std=c99 $(CCXXFLAGS) $(CONF_CFLAGS) $(CFLAGS)
 # - Allow int x(int y=0); int x(int y=0) { return y*2; } (only if default value is identical on both ends, of course)
 # - Something to get rid of the unused variable warning from for (size_t n : range(42)) - Ranges TS, maybe?
 # - Overloading operator[] depending on whether it's a read or write access, int x = std::map[key_t] mutating is silly
-#     not sure if map[key].foo.bar() should count as read or write, so probably not happening, but I can wish
+#     not sure if map[key].foo.bar() should count as read or write; not all wishes are realistic
 # - Modules, if they're good (I haven't looked into them, it's easy to make a bad module system)
 TRUE_CXXFLAGS := -std=c++17 -fno-rtti $(CCXXFLAGS) $(CONF_CXXFLAGS) $(CXXFLAGS)
 TRUE_LFLAGS := $(CONF_LFLAGS) $(LFLAGS)

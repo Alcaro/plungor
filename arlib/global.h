@@ -770,14 +770,36 @@ static inline range_t range(size_t start, size_t stop, size_t step = 1) { return
 #define _GLIBCXX_MATH_H 1 // disable any subsequent #include <math.h>, it's full of using std::sin that conflicts with my overloads
 #include <cmath>
 
+#ifdef __i386__
+// for some reason, the ##f functions don't exist on i386. I suspect it's somehow related to x87 automatic long double.
+#define MATH_FN(name) \
+	extern "C" __attribute__((dllimport)) double name(double); \
+	static inline float name##f(float a) { return name((double)a); } \
+	static inline float name(float a) { return name##f(a); }
+#define MATH_FN_2(name) \
+	extern "C" __attribute__((dllimport)) double name(double,double); \
+	static inline float name##f(float a, float b) { return name((double)a, (double)b); } \
+	static inline float name(float a, float b) { return name##f(a, b); }
+// only way to get rid of the extern float __cdecl sinf(float) from the headers
+#define sinf   dummy_sinf
+#define cosf   dummy_cosf
+#define expf   dummy_expf
+#define logf   dummy_logf
+#define log10f dummy_log10f
+#define powf   dummy_powf
+#define sqrtf  dummy_sqrtf
+#define ceilf  dummy_ceilf
+#define floorf dummy_floorf
+#else
 #define MATH_FN(name) \
 	extern "C" __attribute__((dllimport)) double name(double); \
 	extern "C" __attribute__((dllimport)) float name##f(float); \
-	static inline float name(float a) { return name##f(a); } /* calling sinf would be better, but it's harmless, and useful in templates */
+	static inline float name(float a) { return name##f(a); }
 #define MATH_FN_2(name) \
 	extern "C" __attribute__((dllimport)) double name(double,double); \
 	extern "C" __attribute__((dllimport)) float name##f(float,float); \
 	static inline float name(float a, float b) { return name##f(a, b); }
+#endif
 
 MATH_FN(sin) MATH_FN(cos)
 MATH_FN(exp) MATH_FN(log) MATH_FN(log10)
