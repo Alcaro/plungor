@@ -1,9 +1,11 @@
 #include "arlib.h"
 #include <shellapi.h>
 
-// dll will
-// - inspect the process' import table
-// - overwrite CreateProcess, ShellExecute, and similar with its own versions that insert the same injector, and discard every "runas"
+// This file contains a function that scans the process' import table, and replaces
+// - CreateProcess - must inject itself into child processes
+// - ShellExecute - checks if the verb is runas, and if yes, call a normal CreateProcess instead (plus the above injection)
+// - CheckTokenMembership - in case it asks if it's run as admin
+// - GetProcAddress - in case it tries to load one of the above dynamically
 
 void inject_self(HANDLE proc);
 
@@ -58,9 +60,8 @@ BOOL WINAPI myShellExecuteExA(SHELLEXECUTEINFOA* pExecInfo)
 		// the only observed fMask is 0x00800540, SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI | SEE_MASK_NOZONECHECKS
 		
 		STARTUPINFOA si = { sizeof(si) };
-		PROCESS_INFORMATION pi;
-		
 		si.wShowWindow = pExecInfo->nShow;
+		PROCESS_INFORMATION pi;
 		
 		BOOL ret = myCreateProcessA(pExecInfo->lpFile, (char*)(const char*)((cstring)"\""+pExecInfo->lpFile+"\" "+pExecInfo->lpParameters),
 			NULL, NULL, FALSE, 0, NULL, pExecInfo->lpDirectory, &si, &pi);
@@ -673,7 +674,11 @@ void override_imports(HMODULE mod)
 						if (ordinal[j] == i)
 						{
 							void* newptr = override_import((const char*)(src_base_addr + name_off[j]));
-							if (newptr) *out = newptr;
+							if (newptr)
+							{
+								// can't just *out = newptr, it'll blow up if the import table is in .rdata
+								WriteProcessMemory(GetCurrentProcess(), out, &newptr, sizeof(newptr), NULL);
+							}
 							goto done;
 						}
 					}

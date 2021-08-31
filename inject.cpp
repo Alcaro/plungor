@@ -1,6 +1,9 @@
 #include "arlib.h"
 #include <winternl.h>
 
+// This file contains a function that spawns a process and injects the Plungor DLL.
+// It also contains a main function that calls the above on argv[1].
+
 // Makes the program inject the DLL into itself, rather than spawn a child process. This allows debuggers to connect to it.
 #define INJECT_SELF 0
 
@@ -46,7 +49,7 @@ static void* get_remote_exe32_entry(HANDLE proc)
 	ReadProcessMemory(proc, mod, header, sizeof(header), NULL);
 	
 	IMAGE_DOS_HEADER* head_dos = (IMAGE_DOS_HEADER*)header;
-	IMAGE_NT_HEADERS32* head_nt = (IMAGE_NT_HEADERS32*)(header + head_dos->e_lfanew);
+	IMAGE_NT_HEADERS32* head_nt = (IMAGE_NT_HEADERS32*)(header + head_dos->e_lfanew); // will fail if e_lfanew > 4k, but that's super rare
 	
 	return (void*)((uintptr_t)mod + head_nt->OptionalHeader.AddressOfEntryPoint);
 }
@@ -159,11 +162,14 @@ static void inject_dll64(HANDLE proc, const char * dll)
 #ifdef __i386__
 	if ((uint64_t)entry > 0xFFFFFFF0)
 	{
-		MessageBoxA(NULL, "plungor: A 32bit process tried to create a 64bit process with "
-		                  "entry point above 4GB. This is unimplemented.", "Error", MB_OK);
 		// NtWow64{Read,Write}VirtualMemory64 exist, but unlike {Read,Write}ProcessMemory, they obey page protection
-		// and there's no NtWow64VirtualAlloc or Protect, so I can't flip it
-		// only solution I can see is jump to 64bit code in the local process, then shellcode and find the 64bit WriteProcessMemory
+		// and there's no NtWow64VirtualProtect, so I can't flip it
+		// only solution I can see is jump to 64bit code in the local process, then shellcode and find the 64bit kernel32!WriteProcessMemory
+		// (or ntdll!NtWriteVirtualMemory - they're identical)
+		int boxret = MessageBoxA(NULL, "plungor: A 32bit process tried to launch a 64bit process with "
+		                               "entry point above 4GB. This is unimplemented. Launch the process without Plungor?", "Error",
+		                               MB_YESNO|MB_ICONERROR|MB_DEFBUTTON2);
+		if (boxret != IDYES) TerminateProcess(proc, 1);
 		return;
 	}
 #endif
@@ -176,7 +182,7 @@ static void inject_dll64(HANDLE proc, const char * dll)
 	
 	uint8_t entry_new[12];
 	writeu_be16(entry_new+0, 0x48B8); // mov %rax, imm64
-	writeu_le64(entry_new+2, (uint64_t)body);
+	writeu_le64(entry_new+2, (uint64_t)(uintptr_t)body);
 	writeu_be16(entry_new+10, 0xFFD0); // call %rax
 	
 	ReadProcessMemory(proc, (void*)entry, body_new+(shellcode64_end-shellcode64_start), sizeof(entry_new), NULL);
@@ -223,7 +229,7 @@ int main(int argc, char** argv)
 	              NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &si, &pi);
 	inject_self(pi.hProcess);
 	ResumeThread(pi.hThread);
-	WaitForSingleObject(pi.hProcess, INFINITE); // on Linux, I'd use CLONE_PARENT and discard this extra process, but not available here
+	WaitForSingleObject(pi.hProcess, INFINITE);
 	DWORD ret;
 	GetExitCodeProcess(pi.hProcess, &ret);
 	return ret;

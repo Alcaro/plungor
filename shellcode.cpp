@@ -1,3 +1,6 @@
+// This file contains a piece of shellcode. If injected into a process, it loads a DLL and calls a function in it.
+// It doesn't contain any relocations nor imports.
+
 #ifdef THE_SHELLCODE
 #include <windows.h>
 #include <stdint.h>
@@ -22,7 +25,7 @@ mov %eax, [%eax+0x00] # eax = LDR_MODULE::InLoadOrderModuleList.Flink aka LDR_MO
 mov %eax, [%eax+0x00] # eax = LDR_MODULE::InLoadOrderModuleList.Flink aka LDR_MODULE* for kernel32
 mov %ebx, [%eax+0x18] # ebx = LDR_MODULE::BaseAddress aka HMODULE
 
-call 1f
+call 1f # I could change these calls to lea %eax, [%esi+LoadLibraryA]; push %eax, but no real point
 1:
 addd [%esp], LoadLibraryA-1b
 push %ebx
@@ -112,10 +115,10 @@ mov %r9, 12 # nSize
 movq [%rsp+32], 0 # lpNumberOfBytesWritten
 call %rax
 
-# I'd prefer if I could tail call VirtualFree, but tail call to function entry is impossible in ms64 abi
-# on function entry, the top 8 bytes are the return address, and the 32 bytes below that are the callee's scratch space
-# as such, the code after the call must discard the top 32 bytes of stack
-# but at function entry, the top 8 bytes are the return address; a tail call returning into a function entry is impossible
+# I'd prefer if I could tail call VirtualFree and delete this shellcode, but tail call to function entry is impossible in ms64 abi
+# after function return, the top 32 bytes are garbage; caller may have used them as scratch space
+# at function entry, the top 8 bytes are the return address
+# as such, a tail call returning into a function entry is impossible
 
 add %rsp, 40
 pop %rbx

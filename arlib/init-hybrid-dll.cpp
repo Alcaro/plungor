@@ -101,6 +101,8 @@ void* pe_get_proc_address(HMODULE mod, const char * name)
 	//	return base_addr + addr_off[idx];
 	//}
 	
+	// TODO: forwarder RVAs
+	
 	for (size_t i=0;i<exports->NumberOfNames;i++)
 	{
 		const char * exp_name = (const char*)(base_addr + name_off[i]);
