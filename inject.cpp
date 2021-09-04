@@ -59,6 +59,13 @@ extern const uint8_t shellcode32_end[];
 
 static void inject_dll32(HANDLE proc, const char * dll)
 {
+#if defined(LOCAL_ONLY) && defined(__x86_64__)
+	int boxret = MessageBoxA(NULL, "plungor: A 64bit process tried to launch a 32bit process. Plungor is configured in 64bit-only mode. "
+	                               "Launch the process without Plungor?", "Error",
+	                               MB_YESNO|MB_ICONERROR|MB_DEFBUTTON2);
+	if (boxret != IDYES) TerminateProcess(proc, 1);
+	return;
+#else
 	void* entry = get_remote_exe32_entry(proc);
 	
 	uint8_t body_new[4096];
@@ -74,6 +81,7 @@ static void inject_dll32(HANDLE proc, const char * dll)
 	ReadProcessMemory(proc, (void*)entry, body_new+(shellcode32_end-shellcode32_start), sizeof(entry_new), NULL);
 	WriteProcessMemory(proc, (void*)entry, entry_new, sizeof(entry_new), NULL);
 	WriteProcessMemory(proc, body, body_new, sizeof(body_new), NULL);
+#endif
 }
 
 #ifdef __i386__
@@ -157,6 +165,13 @@ extern const uint8_t shellcode64_end[];
 
 static void inject_dll64(HANDLE proc, const char * dll)
 {
+#if defined(LOCAL_ONLY) && defined(__i386__)
+	int boxret = MessageBoxA(NULL, "plungor: A 32bit process tried to launch a 64bit process. Plungor is configured in 32bit-only mode. "
+	                               "Launch the process without Plungor?", "Error",
+	                               MB_YESNO|MB_ICONERROR|MB_DEFBUTTON2);
+	if (boxret != IDYES) TerminateProcess(proc, 1);
+	return;
+#else
 	PVOID64 entry = get_remote_exe64_entry(proc);
 	
 #ifdef __i386__
@@ -164,8 +179,9 @@ static void inject_dll64(HANDLE proc, const char * dll)
 	{
 		// NtWow64{Read,Write}VirtualMemory64 exist, but unlike {Read,Write}ProcessMemory, they obey page protection
 		// and there's no NtWow64VirtualProtect, so I can't flip it
-		// only solution I can see is jump to 64bit code in the local process, then shellcode and find the 64bit kernel32!WriteProcessMemory
-		// (or ntdll!NtWriteVirtualMemory - they're identical)
+		// possible solution 1: jump to 64bit code in the local process, then shellcode and find the 64bit kernel32!WriteProcessMemory
+		//  (or ntdll!NtWriteVirtualMemory - they're identical)
+		// possible solution 2: launch a plungor64.exe that patches the program then terminates
 		int boxret = MessageBoxA(NULL, "plungor: A 32bit process tried to launch a 64bit process with "
 		                               "entry point above 4GB. This is unimplemented. Launch the process without Plungor?", "Error",
 		                               MB_YESNO|MB_ICONERROR|MB_DEFBUTTON2);
@@ -188,6 +204,7 @@ static void inject_dll64(HANDLE proc, const char * dll)
 	ReadProcessMemory(proc, (void*)entry, body_new+(shellcode64_end-shellcode64_start), sizeof(entry_new), NULL);
 	WriteProcessMemory(proc, (void*)entry, entry_new, sizeof(entry_new), NULL);
 	WriteProcessMemory(proc, body, body_new, sizeof(body_new), NULL);
+#endif
 }
 
 void inject_dll(HANDLE proc, const char * dll32, const char * dll64);
@@ -201,15 +218,14 @@ void inject_self(HANDLE proc);
 void inject_self(HANDLE proc)
 {
 	if (is_process_64(proc)) inject_dll64(proc, file::exepath()+"plungor64.exe");
-	else inject_dll32(proc, file::exepath()+"plungor32.dll");
+	else inject_dll32(proc, file::exepath()+"plungor32.exe");
 }
-
 
 int main(int argc, char** argv)
 {
 #if INJECT_SELF
 	hello();
-	inject_dll(GetCurrentProcess(), file::exepath()+"plungor32.dll", file::exepath()+"plungor64.dll");
+	inject_self(GetCurrentProcess());
 	hello();
 	return 0;
 #endif

@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #ifdef __i386__
+
 __asm__(R"(
 .data
 .code32
@@ -70,7 +71,9 @@ PlungorInit: .ascii "PlungorInit\0"
 WriteProcessMemory: .ascii "WriteProcessMemory\0"
 
 )");
+
 #else
+
 __asm__(R"(
 .data
 .code64
@@ -129,6 +132,7 @@ PlungorInit: .ascii "PlungorInit\0"
 WriteProcessMemory: .ascii "WriteProcessMemory\0"
 
 )");
+
 #endif
 
 static inline bool streq(const char * a, const char * b) // no strcmp, it's an OS facility

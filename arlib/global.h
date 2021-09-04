@@ -87,6 +87,13 @@ void srand(unsigned) __attribute__((deprecated("g_rand doesn't need this")));
 #define __has_include(x) false
 #endif
 
+// in case something is technically undefined behavior, but works as long as compiler can't prove that
+template<typename T> T launder(T v)
+{
+	__asm__("" : "+r"(v));
+	return v;
+}
+
 typedef void(*funcptr)();
 
 #define using(obj) if(obj;true)

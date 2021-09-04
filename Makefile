@@ -8,24 +8,43 @@ endif
 
 PROGRAM = plungor$(WINBITS)
 ARTERMINAL = 0
+ARTYPE = hybrid
 CONF_CFLAGS += -masm=intel
 CONF_LFLAGS += -lntdll
 
-# Binaries from this project contain both 32- and 64-bit code.
+# Binaries from this project (by default) contain both 32- and 64-bit code.
 # This is implemented by having 32bit and 64bit builds read each others' object files.
-# As such, no one command can properly compile this project. Before a 64bit compile can succeed, the
-#  32bit shellcode must be compiled, and vice versa. You can compile it with either 'make asm', or
-#  a normal make; latter will fail, but it will successfully produce the required shellcode.
-# (I could allow making a 32bit-only or 64bit-only Plungor, but former would require filling in 32bit
-#  hybrid DLL support, and latter would only work on 64bit installers which are rare, so no real point.)
-SOURCES += obj/shellcode32.s obj/shellcode64.s
+# As such, no one command can properly compile this project. Before a full 64bit compile can
+#  succeed, the 32bit shellcode must be compiled, and vice versa. To do this, use 'make asm', then
+#  compile the opposite-bitness version.
+# Alternatively, if you only have one set of compilers, use make LOCALONLY=1. This will make Plungor
+#  unable to launch programs of the other bitness.
+# Plungor will compile to two EXEs, which must be placed in the same directory (doesn't matter
+#  which), and may not be renamed, not even if you set LOCALONLY.
+# To run a program under Plungor, drop it on either EXE (64bit recommended, the 32bit version can
+#  fail to launch a few 64bit EXEs). Command line arguments can be passed after the child EXE, if
+#  needed.
+# Plungor is not a sandbox; a Plungor-aware program can detect it, and break out and spawn a UAC
+#  prompt. (However, neither Plungor nor its children can make any UAC prompts return true without
+#  user consent or a 0day.)
+# Running Plungor in itself is a completely meaningless operation. It will probably work, but it's
+#  not tested and will never be.
+
+ifeq ($(LOCALONLY),1)
+ DEFINES += LOCAL_ONLY
+ ifeq ($(WINBITS),32)
+  SOURCES += obj/shellcode32.s
+ else
+  SOURCES += obj/shellcode64.s
+ endif
+else
+ SOURCES += obj/shellcode32.s obj/shellcode64.s
+endif
 
 ifeq ($(WINBITS),32)
-ARTYPE = dll
 asm: obj/shellcode32.s
 obj/shellcode32.s: shellcode.cpp
 else
-ARTYPE = hybrid
 asm: obj/shellcode64.s
 obj/shellcode64.s: shellcode.cpp
 endif
