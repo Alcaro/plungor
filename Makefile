@@ -49,7 +49,7 @@ asm: obj/shellcode64.s
 obj/shellcode64.s: shellcode.cpp
 endif
 	$(ECHOQ) CC $<
-	$(Q)$(CC) $< -DTHE_SHELLCODE $(OPTFLAGS) -fno-function-sections -fno-toplevel-reorder -masm=intel -Os -S -o $@
+	$(Q)$(CC) $< -DTHE_SHELLCODE $(OPTFLAGS) -fno-function-sections -fno-toplevel-reorder -masm=intel -fno-dwarf2-cfi-asm -Os -S -o $@
 
 obj/%.s.o: $$(call SOURCENAME,$$@) $$(DEPS_$$(call DOMAINNAME,$$@)) | obj
 	$(ECHOQ) CC $<
